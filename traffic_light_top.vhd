@@ -18,14 +18,14 @@ entity traffic_light_top is
         EW_green  : out std_logic;
 
         -- 7-seg display (Pmod SSD)
-        seg    : out std_logic_vector(6 downto 0); -- segments a–g
+        seg    : out std_logic_vector(6 downto 0); -- segments aâ€“g
         an     : out std_logic_vector(1 downto 0)  -- digit enable (2 digits)
     );
 end traffic_light_top;
 
 architecture Behavioral of traffic_light_top is
     -- All states the traffic light can take
-    type state_type is (S_Init, S_NS_GREEN, S_NS_YELLOW, S_NS_RED, S_EW_GREEN, S_EW_YELLOW, S_EW_RED);
+    type state_type is (S_Init, S_NS_GREEN, S_NS_YELLOW, S_NS_RED, S_EW_GREEN, S_EW_YELLOW, S_EW_RED, S_PED);
 
     -- Constants for clock frequency
     constant CLK_FREQ : integer := 125_000_000; -- Zybo Z7 clock (external 125 MHz reference clock)
@@ -48,6 +48,9 @@ architecture Behavioral of traffic_light_top is
     signal digit1 : integer range 0 to 9 := 0; -- tens place (left 7 seg)
 
     signal mux_sel : std_logic := '0'; -- toggles between digits
+    
+    -- Pedestrian request
+    constant ped_req : integer := 1;
 
 begin
     -- Clock Divider (generates 1 Hz pulse)
@@ -99,7 +102,7 @@ end process;
                 end if;
                 
                 when S_NS_RED =>
-                if timer_value = 0 && ped_req = 1 then
+                if timer_value = 0 and ped_req = 1 then
                     next_state <= S_PED;
                 else
                 next_state <= S_EW_GREEN;
@@ -116,7 +119,7 @@ end process;
                 end if;
                 
              when S_EW_RED =>
-                if timer_value = 0 && ped_req = 1 then
+                if timer_value = 0 and ped_req = 1 then
                     next_state <= S_PED;
                 else
                 next_state <= S_Init;
@@ -153,6 +156,43 @@ end process;
             end if;
         end if;
     end process;
+    
+    -- Traffic Light Output Logic
+    -- Sets LEDs based on the current state
+    light_output : process(current_state)
+    begin
+        --NS_red <= '1';  NS_yellow <= '0'; NS_green <= '0';
+        --EW_red <= '1';  EW_yellow <= '0'; EW_green <= '0';
+
+        case current_state is
+
+            when S_Init =>
+            NS_red <= '1';  NS_yellow <= '0'; NS_green <= '0';
+            EW_red <= '1';  EW_yellow <= '0'; EW_green <= '0';
+            
+            when S_NS_GREEN =>
+                NS_red <= '0'; NS_yellow <= '0'; NS_green <= '1'; 
+                EW_red <= '1'; EW_yellow <= '0'; EW_green <= '0';
+
+            when S_NS_YELLOW =>
+                NS_red <= '0'; NS_yellow <= '1'; NS_green <= '0';
+                EW_red <= '1'; EW_yellow <= '0'; EW_green <= '0';
+
+            when S_EW_GREEN =>
+                NS_red <= '1'; NS_yellow <= '0'; NS_green <= '0';
+                EW_red <= '0'; EW_yellow <= '0'; EW_green <= '1'; 
+
+            when S_EW_YELLOW =>
+                NS_red <= '1'; NS_yellow <= '0'; NS_green <= '0';
+                EW_red <= '0'; EW_yellow <= '1'; EW_green <= '0';
+              
+            when S_PED =>
+                NS_red <= '1';  NS_yellow <= '0'; NS_green <= '0';
+                EW_red <= '1';  EW_yellow <= '0'; EW_green <= '0';
+
+        end case;
+    end process;
+
 
 
 end Behavioral;

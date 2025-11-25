@@ -25,7 +25,7 @@ end traffic_light_top;
 
 architecture Behavioral of traffic_light_top is
     -- All states the traffic light can take
-    type state_type is (S_Init, S_NS_GREEN, S_NS_YELLOW, S_NS_RED, S_EW_GREEN, S_EW_YELLOW, S_EW_RED, S_PED);
+    type state_type is (S_Init, S_NS_GREEN, S_NS_YELLOW, S_NS_red, S_EW_GREEN, S_EW_YELLOW, S_EW_red, S_PED);
 
     -- Constants for clock frequency
     constant CLK_FREQ : integer := 125_000_000; -- Zybo Z7 clock (external 125 MHz reference clock)
@@ -98,10 +98,10 @@ end process;
 
             when S_NS_YELLOW =>
                 if timer_value = 0 then
-                    next_state <= S_NS_RED;
+                    next_state <= S_NS_red;
                 end if;
                 
-                when S_NS_RED =>
+                when S_NS_red =>
                 if timer_value = 0 and ped_req = 1 then
                     next_state <= S_PED;
                 else
@@ -118,7 +118,7 @@ end process;
                     next_state <= S_NS_GREEN;
                 end if;
                 
-             when S_EW_RED =>
+             when S_EW_red =>
                 if timer_value = 0 and ped_req = 1 then
                     next_state <= S_PED;
                 else
@@ -144,10 +144,10 @@ end process;
                     case next_state is
                         when S_NS_GREEN  => timer_value <= T_GREEN;
                         when S_NS_YELLOW => timer_value <= T_YELLOW;
-                        when S_NS_RED => timer_value <= T_RED;
+                        when S_NS_red => timer_value <= T_RED;
                         when S_EW_GREEN  => timer_value <= T_GREEN;
                         when S_EW_YELLOW => timer_value <= T_YELLOW;
-                        when S_EW_RED => timer_value <= T_RED;
+                        when S_EW_red => timer_value <= T_RED;
                     end case;
     
                 else
@@ -167,8 +167,8 @@ end process;
         case current_state is
 
             when S_Init =>
-            NS_red <= '1';  NS_yellow <= '0'; NS_green <= '0';
-            EW_red <= '1';  EW_yellow <= '0'; EW_green <= '0';
+                NS_red <= '1';  NS_yellow <= '0'; NS_green <= '0';
+                EW_red <= '1';  EW_yellow <= '0'; EW_green <= '0';
             
             when S_NS_GREEN =>
                 NS_red <= '0'; NS_yellow <= '0'; NS_green <= '1'; 
@@ -176,6 +176,10 @@ end process;
 
             when S_NS_YELLOW =>
                 NS_red <= '0'; NS_yellow <= '1'; NS_green <= '0';
+                EW_red <= '1'; EW_yellow <= '0'; EW_green <= '0';
+                
+            when S_NS_red =>
+                NS_red <= '1'; NS_yellow <= '0'; NS_green <= '0';
                 EW_red <= '1'; EW_yellow <= '0'; EW_green <= '0';
 
             when S_EW_GREEN =>
@@ -185,6 +189,10 @@ end process;
             when S_EW_YELLOW =>
                 NS_red <= '1'; NS_yellow <= '0'; NS_green <= '0';
                 EW_red <= '0'; EW_yellow <= '1'; EW_green <= '0';
+                
+            when S_EW_red =>
+                NS_red <= '1'; NS_yellow <= '0'; NS_green <= '0';
+                EW_red <= '1'; EW_yellow <= '0'; EW_green <= '0';
               
             when S_PED =>
                 NS_red <= '1';  NS_yellow <= '0'; NS_green <= '0';
@@ -192,6 +200,12 @@ end process;
 
         end case;
     end process;
+
+    -- Split Timer Into Two Digits
+    -- Converts timer value into two digits as Pmod 
+    -- has 2 displays (each shows a digit)
+    digit1 <= timer_value / 10; -- tens place
+    digit0 <= timer_value mod 10; -- ones place
 
 
 

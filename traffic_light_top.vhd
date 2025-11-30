@@ -207,6 +207,50 @@ end process;
     digit1 <= timer_value / 10; -- tens place
     digit0 <= timer_value mod 10; -- ones place
 
+    -- Display Multiplexing Process
+    -- Switches rapidly between the left and right digit
+    multiplex : process(clk)
+    begin
+        if rising_edge(clk) then
+            mux_sel <= not mux_sel;
+        end if;
+    end process;
 
+    -- 7 segment decoder
+    -- Turns the numbers into segment patterns
+    seven_seg_decoder : process(mux_sel, digit0, digit1)
+    begin
+        if mux_sel = '0' then
+            an <= "10";           -- enable right digit
+            case digit0 is
+                when 0 => seg <= "0111111";
+                when 1 => seg <= "0000110";
+                when 2 => seg <= "1011011";
+                when 3 => seg <= "1001111";
+                when 4 => seg <= "1100110";
+                when 5 => seg <= "1101101";
+                when 6 => seg <= "1111101";
+                when 7 => seg <= "0000111";
+                when 8 => seg <= "1111111";
+                when 9 => seg <= "1101111";
+                when others => seg <= "0000000";
+            end case;
+        else
+            an <= "01";           -- enable left digit
+            case digit1 is
+                when 0 => seg <= "0111111";
+                when 1 => seg <= "0000110";
+                when 2 => seg <= "1011011";
+                when 3 => seg <= "1001111";
+                when 4 => seg <= "1100110";
+                when 5 => seg <= "1101101";
+                when 6 => seg <= "1111101";
+                when 7 => seg <= "0000111";
+                when 8 => seg <= "1111111";
+                when 9 => seg <= "1101111";
+                when others => seg <= "0000000";
+            end case;
+        end if;
+    end process;
 
 end Behavioral;

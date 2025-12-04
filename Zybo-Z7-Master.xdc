@@ -67,12 +67,3 @@ set_property -dict { PACKAGE_PIN H15   IOSTANDARD LVCMOS33 } [get_ports { an[0] 
 # We map it so Vivado sees both bits assigned; set it to a JD pin that is free.
 set_property -dict { PACKAGE_PIN V18   IOSTANDARD LVCMOS33 } [get_ports { an[1] }];
 
-# ------------------------------------------------------------------
-# Optional: If you want to expose SW0..SW2 (switches for timing), uncomment and add
-# top-level ports for sw0..sw2, then enable these lines:
-# ------------------------------------------------------------------
-#set_property -dict { PACKAGE_PIN G15   IOSTANDARD LVCMOS33 } [get_ports { sw0 }];
-#set_property -dict { PACKAGE_PIN P15   IOSTANDARD LVCMOS33 } [get_ports { sw1 }];
-#set_property -dict { PACKAGE_PIN W13   IOSTANDARD LVCMOS33 } [get_ports { sw2 }];
-
-# End of file

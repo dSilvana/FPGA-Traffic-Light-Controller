@@ -17,7 +17,7 @@ entity traffic_light_top is
     EW_yellow : out std_logic;
     EW_green  : out std_logic;
 
-    -- 7-seg display (Pmod SSD)
+    -- 7-seg display (Pmod SSD) - single right digit mode
     seg    : out std_logic_vector(6 downto 0); -- segments a-g
     an     : out std_logic_vector(1 downto 0)  -- digit enable (2 digits)
   );
@@ -45,7 +45,7 @@ architecture Behavioral of traffic_light_top is
   constant CLK_FREQ : integer := 125_000_000; -- Zybo Z7 125 MHz
   constant ONE_SEC  : integer := CLK_FREQ - 1;
 
-  -- Multiplex divisor for 7-seg (adjust for reasonable refresh)
+  -- Multiplex divisor for 7-seg (unused now, kept for future)
   constant MUX_DIV : integer := 100000; -- ~1250 Hz toggle
 
   ----------------------------------------------------------------
@@ -103,7 +103,7 @@ begin
         clk_1hz_en <= '0';
       end if;
 
-      -- Fast mux toggle
+      -- Fast mux toggle (not used for single-digit mode but harmless)
       if mux_div_count = MUX_DIV then
         mux_div_count <= 0;
         mux_sel <= not mux_sel;
@@ -115,9 +115,6 @@ begin
 
   ----------------------------------------------------------------
   -- 2) Pedestrian process (single driver for ped_req)
-  --    - synchronizes button into clk domain
-  --    - latches request on rising edge of sync'd button
-  --    - clears ped_req when pedestrian service finishes (current_state=S_PED and timer_value=0)
   ----------------------------------------------------------------
   ped_process : process(clk, reset)
   begin
@@ -216,29 +213,41 @@ begin
   -- 5) Timer & ped_next_dir process (single driver for timer_value & ped_next_dir)
   --    Behavior: on a 1Hz tick, if a state change is occurring (next_state /= current_state),
   --    load the timer for the next state; otherwise decrement timer.
+  --    IMPORTANT: initialize timer_value on reset so initial state holds.
   ----------------------------------------------------------------
-timer_state_process : process(clk, reset)
-begin
-  if reset = '1' then
-    ped_next_dir <= S_EW_GREEN;
-  elsif rising_edge(clk) then
-    if clk_1hz_en = '1' then
-      if next_state /= current_state then
-        case next_state is
-          when S_NS_RED =>
-            ped_next_dir <= S_EW_GREEN;
+  timer_state_process : process(clk, reset)
+  begin
+    if reset = '1' then
+      timer_value <= T_GREEN;     -- <<---- FIX: initialize timer at reset
+      ped_next_dir <= S_EW_GREEN;
+    elsif rising_edge(clk) then
+      if clk_1hz_en = '1' then
+        -- if a state transition is scheduled, load the duration for the *next* state
+        if next_state /= current_state then
+          case next_state is
+            when S_Init       => timer_value <= T_RED;
+            when S_NS_GREEN   => timer_value <= T_GREEN;
+            when S_NS_YELLOW  => timer_value <= T_YELLOW;
+            when S_NS_RED     =>
+              timer_value <= T_RED;
+              ped_next_dir <= S_EW_GREEN; -- set resume direction after NS->EW
+            when S_EW_GREEN   => timer_value <= T_GREEN;
+            when S_EW_YELLOW  => timer_value <= T_YELLOW;
+            when S_EW_RED     =>
+              timer_value <= T_RED;
+              ped_next_dir <= S_NS_GREEN; -- set resume direction after EW->NS
+            when S_PED        => timer_value <= T_PED;
+          end case;
 
-          when S_EW_RED =>
-            ped_next_dir <= S_NS_GREEN;
-
-          when others =>
-            null;
-        end case;
+        else
+          -- No state change: normal countdown
+          if timer_value > 0 then
+            timer_value <= timer_value - 1;
+          end if;
+        end if;
       end if;
     end if;
-  end if;
-end process;
-
+  end process;
 
   ----------------------------------------------------------------
   -- 6) Output logic (Moore outputs depend only on current_state)
@@ -289,44 +298,28 @@ end process;
   end process;
 
   ----------------------------------------------------------------
-  -- 7) 7-seg: split timer into digits and decode (multiplexed)
+  -- 7) 7-seg: single-digit (right digit) decode
+  --    We drive the right digit only (an = "10") so the SSD shows ones place.
   ----------------------------------------------------------------
-  digit1 <= timer_value / 10; -- tens
-  digit0 <= timer_value mod 10; -- ones
+  digit0 <= timer_value mod 10; -- ones (we only use ones digit)
+  digit1 <= timer_value / 10;   -- tens (kept for clarity; unused on display)
 
-  seven_seg_decoder : process(mux_sel, digit0, digit1)
+  seven_seg_decoder : process(digit0)
   begin
-    if mux_sel = '0' then
-      an <= "10"; -- enable ones (right)
-      case digit0 is
-        when 0 => seg <= "0111111";
-        when 1 => seg <= "0000110";
-        when 2 => seg <= "1011011";
-        when 3 => seg <= "1001111";
-        when 4 => seg <= "1100110";
-        when 5 => seg <= "1101101";
-        when 6 => seg <= "1111101";
-        when 7 => seg <= "0000111";
-        when 8 => seg <= "1111111";
-        when 9 => seg <= "1101111";
-        when others => seg <= "0000000";
-      end case;
-    else
-      an <= "01"; -- enable tens (left)
-      case digit1 is
-        when 0 => seg <= "0111111";
-        when 1 => seg <= "0000110";
-        when 2 => seg <= "1011011";
-        when 3 => seg <= "1001111";
-        when 4 => seg <= "1100110";
-        when 5 => seg <= "1101101";
-        when 6 => seg <= "1111101";
-        when 7 => seg <= "0000111";
-        when 8 => seg <= "1111111";
-        when 9 => seg <= "1101111";
-        when others => seg <= "0000000";
-      end case;
-    end if;
+    an <= "10"; -- enable only RIGHT digit (ones) - Option A
+    case digit0 is
+      when 0 => seg <= "0111111";
+      when 1 => seg <= "0000110";
+      when 2 => seg <= "1011011";
+      when 3 => seg <= "1001111";
+      when 4 => seg <= "1100110";
+      when 5 => seg <= "1101101";
+      when 6 => seg <= "1111101";
+      when 7 => seg <= "0000111";
+      when 8 => seg <= "1111111";
+      when 9 => seg <= "1101111";
+      when others => seg <= "0000000";
+    end case;
   end process;
 
 end Behavioral;
